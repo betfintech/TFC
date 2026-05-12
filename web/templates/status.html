@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Status — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --green: #3fb950; --red: #f85149; --blue: #58a6ff;
+      --muted: #8b949e; --text: #e6edf3; --gold: #d29922;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh; }
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 2rem; display: flex; align-items: center;
+      justify-content: space-between; height: 60px;
+    }
+    header .brand { font-size: 1.1rem; font-weight: 700; color: var(--blue); }
+    nav a { color: var(--muted); text-decoration: none; margin-left: 1.5rem;
+            font-size: .9rem; transition: color .2s; }
+    nav a:hover, nav a.active { color: var(--text); }
+    main { max-width: 900px; margin: 2.5rem auto; padding: 0 1.5rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 1.5rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.25rem 1.5rem;
+    }
+    .card .label { font-size: .78rem; color: var(--muted); text-transform: uppercase;
+                   letter-spacing: .05em; margin-bottom: .5rem; }
+    .card .value { font-size: 1.4rem; font-weight: 700; }
+    .card .sub { font-size: .82rem; color: var(--muted); margin-top: .3rem; }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+           margin-right: .4rem; }
+    .dot.green { background: var(--green); }
+    .dot.red   { background: var(--red); }
+    .dot.gold  { background: var(--gold); }
+    .status-row { display: flex; align-items: center; gap: .5rem;
+                  padding: .6rem 0; border-bottom: 1px solid var(--border); }
+    .status-row:last-child { border-bottom: none; }
+    .status-row .name { flex: 1; }
+    .badge {
+      font-size: .75rem; padding: .25rem .6rem; border-radius: 20px;
+      font-weight: 600; text-transform: uppercase;
+    }
+    .badge.running  { background: rgba(63,185,80,.15); color: var(--green); }
+    .badge.stopped  { background: rgba(248,81,73,.15); color: var(--red); }
+    .badge.unknown  { background: rgba(139,148,158,.15); color: var(--muted); }
+    #refresh-time { font-size: .78rem; color: var(--muted); margin-top: 1.5rem; }
+    footer { text-align: center; padding: 2rem; color: var(--muted); font-size: .8rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">⚡ Signal System</div>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/signals">Signals</a>
+    <a href="/chart">Chart</a>
+    <a href="/payments">Payments</a>
+    <a href="/status" class="active">Status</a>
+    <a href="/chat">Chat</a>
+  </nav>
+</header>
+
+<main>
+  <h1>📡 System Status</h1>
+
+  <div class="grid" id="statsGrid">
+    <div class="card">
+      <div class="label">Signals Sent Today</div>
+      <div class="value" id="signalsToday">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Scan Cycles</div>
+      <div class="value" id="cycleCount">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Last Scan</div>
+      <div class="value" id="lastScan" style="font-size:1rem">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Engine Status</div>
+      <div class="value" id="engineStatus">—</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.25rem">
+    <div class="label" style="margin-bottom:.75rem">Services</div>
+    <div class="status-row">
+      <span class="name">Trading Engine</span>
+      <span class="badge" id="tradingBot">—</span>
+    </div>
+    <div class="status-row">
+      <span class="name">Chat Bot</span>
+      <span class="badge" id="chatBot">—</span>
+    </div>
+    <div class="status-row">
+      <span class="name">Payment System</span>
+      <span class="badge" id="paymentSystem">—</span>
+    </div>
+  </div>
+
+  <div id="lastError" style="display:none; margin-top:1rem;" class="card">
+    <div class="label">Last Error</div>
+    <div class="value" id="lastErrorText" style="font-size:.9rem;color:var(--red);"></div>
+  </div>
+
+  <p id="refresh-time">Auto-refreshing every 10 seconds...</p>
+</main>
+
+<footer>Trading Signal System</footer>
+
+<script>
+  function setBadge(id, status) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = status || 'unknown';
+    el.className = 'badge ' + (
+      status === 'running' ? 'running' :
+      status === 'stopped' ? 'stopped' : 'unknown'
+    );
+  }
+
+  async function loadStatus() {
+    try {
+      const res = await fetch('/api/status');
+      const d = await res.json();
+
+      document.getElementById('signalsToday').textContent = d.signals_sent_today ?? '0';
+      document.getElementById('cycleCount').textContent = d.cycle_count ?? '0';
+      document.getElementById('lastScan').textContent = d.last_scan_time ? new Date(d.last_scan_time * 1000).toLocaleTimeString() : 'N/A';
+      document.getElementById('engineStatus').textContent = d.engine_status ?? 'unknown';
+
+      setBadge('tradingBot', d.trading_bot);
+      setBadge('chatBot', d.chat_bot);
+      setBadge('paymentSystem', d.payment_system);
+
+      const errEl = document.getElementById('lastError');
+      if (d.last_error) {
+        document.getElementById('lastErrorText').textContent = d.last_error;
+        errEl.style.display = 'block';
+      } else {
+        errEl.style.display = 'none';
+      }
+
+      document.getElementById('refresh-time').textContent =
+        'Last updated: ' + new Date().toLocaleTimeString() + ' (auto-refresh every 10s)';
+    } catch (e) {
+      console.error('Status load error:', e);
+    }
+  }
+
+  loadStatus();
+  setInterval(loadStatus, 10000);
+</script>
+
+</body>
+  </html>
+  

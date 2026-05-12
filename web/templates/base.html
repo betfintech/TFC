@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trading Signal System</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- TradingView Lightweight Charts -->
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
+  <!-- App Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+</head>
+<body>
+
+<!-- ── Global Loading Overlay ── -->
+<div id="global-spinner" class="spinner-overlay" style="display:none">
+  <div class="spinner-box">
+    <div class="spinner"></div>
+    <p>Loading…</p>
+  </div>
+</div>
+
+<div class="app-shell">
+
+  <!-- ── Header ── -->
+  <header class="app-header">
+    <div class="row" style="gap:10px">
+      <button class="hamburger" id="hamburger" aria-label="Menu">☰</button>
+      <div class="header-brand">
+        <span>📈</span> <span>Trading <span>Signal</span> System</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="row" style="gap:6px">
+        <div class="footer-status">
+          <div class="status-dot"></div>
+          <span id="footer-status-text" style="font-size:0.75rem;color:var(--text-tertiary)">Online</span>
+        </div>
+        <a href="#" data-page="account" class="btn btn-sm btn-secondary">👤 Account</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Body ── -->
+  <div class="app-body">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Main</div>
+        <a href="#" data-page="dashboard" class="nav-item">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="#" data-page="signals" class="nav-item">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Signals</span>
+        </a>
+        <a href="#" data-page="chart" class="nav-item">
+          <span class="nav-icon">📈</span>
+          <span class="nav-label">Chart</span>
+        </a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Tools</div>
+        <a href="#" data-page="risk-calculator" class="nav-item">
+          <span class="nav-icon">💰</span>
+          <span class="nav-label">Risk Calculator</span>
+        </a>
+        <a href="#" data-page="chat" class="nav-item">
+          <span class="nav-icon">💬</span>
+          <span class="nav-label">Chat</span>
+        </a>
+      </div>
+      <div class="sidebar-section" style="margin-top:auto">
+        <div class="sidebar-label">Account</div>
+        <a href="#" data-page="account" class="nav-item">
+          <span class="nav-icon">👤</span>
+          <span class="nav-label">My Account</span>
+        </a>
+      </div>
+    </aside>
+
+    <!-- ── Main Content (SPA target) ── -->
+    <main id="app-main" class="app-main">
+      <!-- Pages load here via app.js -->
+    </main>
+
+  </div>
+
+  <!-- ── Footer ── -->
+  <footer class="app-footer">
+    <div class="footer-status">
+      <span id="footer-time" style="font-family:var(--font-mono)">--:-- UTC</span>
+    </div>
+    <div class="row" style="gap:12px">
+      <span style="color:var(--text-tertiary)">Trading Signal System</span>
+    </div>
+  </footer>
+
+</div><!-- /app-shell -->
+
+<!-- ── Scripts ── -->
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/api-client.js') }}"></script>
+<script src="{{ url_for('static', filename='js/risk-calculator.js') }}"></script>
+<script src="{{ url_for('static', filename='js/signals-feed.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chart-manager.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payments — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --green: #3fb950; --red: #f85149; --blue: #58a6ff;
+      --muted: #8b949e; --text: #e6edf3; --yellow: #d29922;
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 2rem; display: flex; align-items: center;
+      justify-content: space-between; height: 60px;
+    }
+    header .brand { font-size: 1.1rem; font-weight: 700; color: var(--blue); }
+    nav a { color: var(--muted); text-decoration: none; margin-left: 1.5rem;
+            font-size: .9rem; transition: color .2s; }
+    nav a:hover, nav a.active { color: var(--text); }
+
+    main { max-width: 1000px; margin: 2.5rem auto; padding: 0 1.5rem; }
+
+    h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+
+    section { margin-bottom: 2.5rem; }
+
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: .8rem;
+    }
+
+    .badge {
+      display: inline-block; padding: .2rem .65rem; border-radius: 6px;
+      font-size: .78rem; font-weight: 600;
+    }
+    .badge-yellow { background: rgba(210,153,34,.15); color: var(--yellow); }
+    .badge-green  { background: rgba(63,185,80,.12);  color: var(--green);  }
+
+    .table-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; overflow-x: auto;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      background: rgba(255,255,255,.03); border-bottom: 1px solid var(--border);
+      padding: .7rem 1rem; text-align: left; font-size: .77rem;
+      text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+    }
+
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,.025); }
+
+    td { padding: .8rem 1rem; font-size: .87rem; vertical-align: top; }
+
+    .proof-cell {
+      max-width: 300px; color: var(--muted); font-size: .8rem;
+      word-break: break-all;
+    }
+
+    .ts { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+
+    .empty-row td {
+      text-align: center; color: var(--muted); padding: 2rem;
+    }
+
+    .id-cell { font-family: "SF Mono", monospace; font-size: .82rem; color: var(--muted); }
+
+    .approved-indicator {
+      display: inline-flex; align-items: center; gap: .35rem;
+      font-size: .8rem; color: var(--green);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="brand">📈 Signal System</span>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/signals">Signals</a>
+    <a href="/chart">Chart</a>
+    <a href="/payments" class="active">Payments</a>
+    <a href="/chat">Chat</a>
+    <a href="/status">Status</a>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ── Pending submissions ──────────────────────────────────────────────── -->
+  <section>
+    <div class="section-header">
+      <h2>⏳ Pending Payment Submissions</h2>
+      <span class="badge badge-yellow">{{ pending|length }} pending</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Username</th>
+            <th>Proof / Reference</th>
+            <th>Submitted</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if pending %}
+            {% for p in pending %}
+            <tr>
+              <td class="id-cell">{{ p.user_id }}</td>
+              <td>@{{ p.username or "—" }}</td>
+              <td class="proof-cell">{{ (p.proof or "")[:200] }}</td>
+              <td class="ts">{{ (p.submitted or "")[:19].replace("T"," ") }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr class="empty-row">
+              <td colspan="4">No pending submissions</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Approved subscribers ────────────────────────────────────────────── -->
+  <section>
+    <div class="section-header">
+      <h2>✅ Approved Subscribers</h2>
+      <span class="badge badge-green">{{ subscribers|length }} active</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Approved On</th>
+            <th>Expires</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if subscribers %}
+            {% for s in subscribers %}
+            <tr>
+              <td class="id-cell">{{ s.user_id }}</td>
+              <td class="ts">{{ (s.approved or "")[:10] }}</td>
+              <td class="ts">{{ (s.expires  or "")[:10] }}</td>
+              <td>
+                <span class="approved-indicator">
+                  <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span>
+                  Active
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr class="empty-row">
+              <td colspan="4">No approved subscribers yet</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Risk Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080c10;
+      --surface:   #0e1318;
+      --surface2:  #141b22;
+      --border:    #1e2a35;
+      --border2:   #253040;
+      --green:     #00e5a0;
+      --green-dim: rgba(0,229,160,.12);
+      --red:       #ff4d6a;
+      --red-dim:   rgba(255,77,106,.1);
+      --gold:      #f0b429;
+      --gold-dim:  rgba(240,180,41,.1);
+      --blue:      #38bdf8;
+      --muted:     #4a5d6e;
+      --muted2:    #6b8090;
+      --text:      #d8e8f0;
+      --text2:     #a8bfcc;
+      --mono:      'DM Mono', monospace;
+      --display:   'Syne', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0; opacity: .6;
+    }
+
+    .app {
+      position: relative; z-index: 1;
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding-bottom: 2rem;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 1.25rem 1.25rem .75rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-title {
+      font-family: var(--display);
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -.01em;
+      color: var(--text);
+    }
+    .header-sub {
+      font-size: .7rem;
+      color: var(--muted2);
+      margin-top: .1rem;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .live-badge {
+      display: flex; align-items: center; gap: .35rem;
+      font-size: .68rem; color: var(--green);
+      letter-spacing: .06em; text-transform: uppercase;
+    }
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+      box-shadow: 0 0 6px var(--green);
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── Signal pill (auto-fill) ── */
+    .signal-bar {
+      margin: 0 1rem .9rem;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: .6rem .9rem;
+      display: flex; align-items: center; gap: .6rem;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      animation: slideIn .4s ease;
+    }
+    @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+    .signal-bar:hover { border-color: var(--green); background: var(--surface2); }
+    .signal-bar .sb-icon { font-size: 1rem; }
+    .signal-bar .sb-text { flex: 1; font-size: .72rem; color: var(--muted2); }
+    .signal-bar .sb-text strong { color: var(--text); font-size: .78rem; display: block; }
+    .signal-bar .sb-action {
+      font-size: .66rem; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--green); border: 1px solid rgba(0,229,160,.3);
+      padding: .2rem .55rem; border-radius: 20px;
+      transition: background .2s;
+    }
+    .signal-bar:hover .sb-action { background: var(--green-dim); }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex; margin: 0 1rem .9rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .tab {
+      flex: 1; text-align: center;
+      padding: .5rem .3rem;
+      border-radius: 8px;
+      font-size: .68rem; font-weight: 500;
+      text-transform: uppercase; letter-spacing: .07em;
+      color: var(--muted2);
+      cursor: pointer;
+      transition: background .2s, color .2s;
+      border: none; background: none;
+    }
+    .tab.active {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border2);
+    }
+
+    /* ── Panels ── */
+    .panel { display: none; padding: 0 1rem; animation: fadeIn .25s ease; }
+    .panel.active { display: block; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: .63rem; text-transform: uppercase; letter-spacing: .1em;
+      color: var(--muted); margin-bottom: .55rem; padding-left: .1rem;
+    }
+
+    /* ── Input card ── */
+    .input-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .9rem 1rem;
+      margin-bottom: .75rem;
+    }
+
+    .field {
+      margin-bottom: .65rem;
+    }
+    .field:last-child { margin-bottom: 0; }
+
+    .field label {
+      display: block;
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted2);
+      margin-bottom: .3rem;
+    }
+
+    .field-row { display: flex; gap: .5rem; }
+    .field-row .field { flex: 1; }
+
+    input[type="number"], select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: .9rem;
+      padding: .55rem .75rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    input[type="number"]:focus, select:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(0,229,160,.08);
+    }
+    select { cursor: pointer; }
+    option { background: var(--surface2); }
+
+    /* Risk slider */
+    .risk-slider-wrap {
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .risk-slider-wrap input[type="range"] {
+      flex: 1; padding: 0;
+      -webkit-appearance: none; appearance: none;
+      height: 4px; border-radius: 2px;
+      background: var(--border2);
+      outline: none; border: none; box-shadow: none;
+    }
+    .risk-slider-wrap input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--green);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(0,229,160,.5);
+    }
+    .risk-val {
+      min-width: 3.2rem; text-align: right;
+      font-size: .88rem; color: var(--green); font-weight: 500;
+    }
+
+    /* ── Calculate button ── */
+    .calc-btn {
+      width: 100%;
+      background: var(--green);
+      color: #060c10;
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: .85rem;
+      letter-spacing: .05em;
+      border: none; border-radius: 10px;
+      padding: .85rem;
+      cursor: pointer;
+      margin-bottom: .75rem;
+      transition: opacity .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 4px 20px rgba(0,229,160,.25);
+    }
+    .calc-btn:hover { opacity: .92; box-shadow: 0 6px 28px rgba(0,229,160,.35); }
+    .calc-btn:active { transform: scale(.98); }
+
+    /* ── Results ── */
+    .results {
+      display: none;
+      animation: resultsIn .35s cubic-bezier(.34,1.56,.64,1);
+    }
+    .results.visible { display: block; }
+    @keyframes resultsIn {
+      from { opacity:0; transform:translateY(12px) scale(.97); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .6rem;
+      margin-bottom: .6rem;
+    }
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .75rem .85rem;
+      text-align: center;
+    }
+    .result-card.highlight {
+      border-color: rgba(0,229,160,.35);
+      background: var(--green-dim);
+    }
+    .result-card.danger {
+      border-color: rgba(255,77,106,.35);
+      background: var(--red-dim);
+    }
+    .result-card.gold {
+      border-color: rgba(240,180,41,.35);
+      background: var(--gold-dim);
+    }
+    .result-card .rc-label {
+      font-size: .6rem; text-transform: uppercase;
+      letter-spacing: .09em; color: var(--muted2);
+      margin-bottom: .3rem;
+    }
+    .result-card .rc-val {
+      font-size: 1.2rem; font-weight: 500;
+      color: var(--text);
+    }
+    .result-card.highlight .rc-val { color: var(--green); }
+    .result-card.danger   .rc-val { color: var(--red); }
+    .result-card.gold     .rc-val { color: var(--gold); }
+    .result-card .rc-sub {
+      font-size: .65rem; color: var(--muted2); margin-top: .15rem;
+    }
+
+    /* Wide result card */
+    .result-card.wide {
+      grid-column: span 2;
+    }
+
+    /* Breakdown bar */
+    .breakdown {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .85rem 1rem;
+      margin-bottom: .6rem;
+    }
+    .breakdown-title {
+      font-size: .62rem; text-transform: uppercase;
+      letter-spacing: .09em; color: var(--muted2);
+      margin-bottom: .65rem;
+    }
+    .breakdown-row {
+      display: flex; justify-content: space-between;
+      align-items: center;
+      padding: .38rem 0;
+      border-bottom: 1px solid rgba(30,42,53,.8);
+      font-size: .8rem;
+    }
+    .breakdown-row:last-child { border-bottom: none; }
+    .breakdown-row .br-label { color: var(--muted2); }
+    .breakdown-row .br-val { font-weight: 500; }
+    .br-green { color: var(--green); }
+    .br-red   { color: var(--red); }
+    .br-gold  { color: var(--gold); }
+    .br-blue  { color: var(--blue); }
+
+    /* Risk meter */
+    .risk-meter {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .85rem 1rem;
+      margin-bottom: .6rem;
+    }
+    .rm-title {
+      font-size: .62rem; text-transform: uppercase;
+      letter-spacing: .09em; color: var(--muted2); margin-bottom: .6rem;
+    }
+    .rm-bar-wrap {
+      height: 8px; background: var(--border2);
+      border-radius: 4px; overflow: hidden; margin-bottom: .4rem;
+    }
+    .rm-bar {
+      height: 100%; border-radius: 4px;
+      transition: width .6s cubic-bezier(.34,1.2,.64,1), background .3s;
+    }
+    .rm-labels {
+      display: flex; justify-content: space-between;
+      font-size: .62rem; color: var(--muted);
+    }
+    .rm-status {
+      margin-top: .5rem;
+      font-size: .75rem; font-weight: 500;
+      text-align: center;
+      padding: .35rem;
+      border-radius: 6px;
+    }
+
+    /* Warning box */
+    .warn-box {
+      border-radius: 8px; padding: .6rem .85rem;
+      font-size: .75rem; line-height: 1.5;
+      margin-bottom: .6rem; display: none;
+    }
+    .warn-box.visible { display: block; }
+    .warn-box.caution {
+      background: rgba(240,180,41,.08);
+      border: 1px solid rgba(240,180,41,.25);
+      color: var(--gold);
+    }
+    .warn-box.danger {
+      background: rgba(255,77,106,.08);
+      border: 1px solid rgba(255,77,106,.25);
+      color: var(--red);
+    }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px; background: var(--border);
+      margin: .8rem 0;
+    }
+
+    /* ── Breakeven panel specific ── */
+    .be-info {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: .85rem 1rem;
+      margin-bottom: .75rem;
+    }
+    .be-info p {
+      font-size: .78rem; line-height: 1.65;
+      color: var(--muted2);
+    }
+    .be-info strong { color: var(--text); }
+
+    /* ── Daily guard panel ── */
+    .guard-circle-wrap {
+      display: flex; justify-content: center; padding: .5rem 0 1rem;
+    }
+    .guard-circle {
+      width: 130px; height: 130px;
+      border-radius: 50%;
+      background: conic-gradient(var(--red) 0deg, var(--border2) 0deg);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .guard-circle::before {
+      content: '';
+      width: 100px; height: 100px; border-radius: 50%;
+      background: var(--bg);
+      position: absolute;
+    }
+    .guard-circle-inner {
+      position: relative; z-index: 1; text-align: center;
+    }
+    .guard-circle-inner .gc-val {
+      font-family: var(--display); font-size: 1.5rem;
+      font-weight: 800; color: var(--text); display: block;
+    }
+    .guard-circle-inner .gc-label {
+      font-size: .6rem; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted2);
+    }
+
+    /* ── Footer ── */
+    .footer-note {
+      text-align: center;
+      font-size: .62rem;
+      color: var(--muted);
+      padding: 1.25rem 1rem 0;
+      letter-spacing: .03em;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    /* ── Ripple on result cards ── */
+    .result-card { overflow: hidden; position: relative; }
+
+    /* Mobile adjustments */
+    @media (max-width: 360px) {
+      .result-grid { grid-template-columns: 1fr; }
+      .result-card.wide { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="header-title">Risk Calculator</div>
+      <div class="header-sub">Smart Money Precision</div>
+    </div>
+    <div class="live-badge">
+      <span class="live-dot"></span> Live
+    </div>
+  </div>
+
+  <!-- Signal auto-fill bar (shown when signal data is detected) -->
+  <div class="signal-bar" id="signalBar" style="display:none" onclick="applySignal()">
+    <span class="sb-icon">📡</span>
+    <div class="sb-text">
+      <strong id="signalBarTitle">EURUSD · BUY</strong>
+      <span id="signalBarSub">Entry 1.08420 · SL 1.07900</span>
+    </div>
+    <span class="sb-action">Auto-Fill</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('lot')">Lot Size</button>
+    <button class="tab" onclick="switchTab('rr')">R:R Preview</button>
+    <button class="tab" onclick="switchTab('be')">Break-Even</button>
+    <button class="tab" onclick="switchTab('guard')">Daily Guard</button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       TAB 1 — LOT SIZE CALCULATOR
+  ════════════════════════════════════════════════════ -->
+  <div class="panel active" id="tab-lot">
+
+    <div class="section-label">Account Settings</div>
+    <div class="input-card">
+      <div class="field-row">
+        <div class="field">
+          <label>Account Balance ($)</label>
+          <input type="number" id="lot-balance" placeholder="e.g. 1000" min="1" step="1" oninput="lotCalc()">
+        </div>
+        <div class="field">
+          <label>Account Type</label>
+          <select id="lot-type" onchange="lotCalc()">
+            <option value="standard">Standard</option>
+            <option value="mini">Mini</option>
+            <option value="micro">Micro</option>
+            <option value="nano">Nano</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Risk Per Trade: <span id="lot-risk-label">2%</span></label>
+        <div class="risk-slider-wrap">
+          <input type="range" id="lot-risk" min="0.1" max="10" step="0.1" value="2" oninput="updateRiskLabel();lotCalc()">
+          <span class="risk-val" id="lot-risk-display">2.0%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">Trade Setup</div>
+    <div class="input-card">
+      <div class="field-row">
+        <div class="field">
+          <label>Entry Price</label>
+          <input type="number" id="lot-entry" placeholder="1.08420" step="0.00001" oninput="lotCalc()">
+        </div>
+        <div class="field">
+          <label>Stop Loss</label>
+          <input type="number" id="lot-sl" placeholder="1.07900" step="0.00001" oninput="lotCalc()">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Instrument</label>
+          <select id="lot-instrument" onchange="lotCalc()">
+            <optgroup label="Forex Majors">
+              <option value="forex-major">EUR/USD, GBP/USD, AUD/USD…</option>
+              <option value="forex-jpy">JPY Pairs (USD/JPY…)</option>
+              <option value="forex-minor">Minor Pairs (EUR/GBP…)</option>
+            </optgroup>
+            <optgroup label="Crypto">
+              <option value="crypto-btc">BTC/USDT</option>
+              <option value="crypto-eth">ETH/USDT</option>
+              <option value="crypto-alt">Other Crypto</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field">
+          <label>Direction</label>
+          <select id="lot-dir" onchange="lotCalc()">
+            <option value="buy">▲ BUY</option>
+            <option value="sell">▼ SELL</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="calc-btn" onclick="lotCalc(true)">Calculate Lot Size →</button>
+
+    <!-- Lot Results -->
+    <div class="results" id="lot-results">
+
+      <div class="warn-box" id="lot-warn"></div>
+
+      <div class="result-grid">
+        <div class="result-card highlight wide">
+          <div class="rc-label">Recommended Lot Size</div>
+          <div class="rc-val" id="lot-size-val">—</div>
+          <div class="rc-sub" id="lot-size-sub">standard lots</div>
+        </div>
+        <div class="result-card danger">
+          <div class="rc-label">Max $ at Risk</div>
+          <div class="rc-val" id="lot-risk-usd">—</div>
+          <div class="rc-sub">if SL is hit</div>
+        </div>
+        <div class="result-card">
+          <div class="rc-label">Stop Loss Pips</div>
+          <div class="rc-val" id="lot-pips">—</div>
+          <div class="rc-sub">distance</div>
+        </div>
+        <div class="result-card">
+          <div class="rc-label">Pip Value</div>
+          <div class="rc-val" id="lot-pip-val">—</div>
+          <div class="rc-sub">per pip</div>
+        </div>
+        <div class="result-card">
+          <div class="rc-label">Margin Needed</div>
+          <div class="rc-val" id="lot-margin">—</div>
+          <div class="rc-sub">~1:100 leverage</div>
+        </div>
+      </div>
+
+      <div class="risk-meter">
+        <div class="rm-title">Risk Level</div>
+        <div class="rm-bar-wrap">
+          <div class="rm-bar" id="lot-risk-bar" style="width:0%"></div>
+        </div>
+        <div class="rm-labels">
+          <span>Conservative (1%)</span>
+          <span>Aggressive (5%+)</span>
+        </div>
+        <div class="rm-status" id="lot-risk-status"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       TAB 2 — RISK/REWARD PREVIEW
+  ════════════════════════════════════════════════════ -->
+  <div class="panel" id="tab-rr">
+
+    <div class="section-label">Trade Parameters</div>
+    <div class="input-card">
+      <div class="field-row">
+        <div class="field">
+          <label>Balance ($)</label>
+          <input type="number" id="rr-balance" placeholder="1000" oninput="rrCalc()">
+        </div>
+        <div class="field">
+          <label>Risk %</label>
+          <input type="number" id="rr-risk" placeholder="2" min="0.1" max="20" step="0.1" oninput="rrCalc()">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Entry</label>
+          <input type="number" id="rr-entry" placeholder="1.08420" step="0.00001" oninput="rrCalc()">
+        </div>
+        <div class="field">
+          <label>Stop Loss</label>
+          <input type="number" id="rr-sl" placeholder="1.07900" step="0.00001" oninput="rrCalc()">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>TP1 Price</label>
+          <input type="number" id="rr-tp1" placeholder="1.09460" step="0.00001" oninput="rrCalc()">
+        </div>
+        <div class="field">
+          <label>TP2 Price</label>
+          <input type="number" id="rr-tp2" placeholder="1.09980" step="0.00001" oninput="rrCalc()">
+        </div>
+      </div>
+    </div>
+
+    <button class="calc-btn" onclick="rrCalc(true)">Preview Profit/Loss →</button>
+
+    <div class="results" id="rr-results">
+
+      <div class="breakdown">
+        <div class="breakdown-title">Scenario Breakdown</div>
+        <div class="breakdown-row">
+          <span class="br-label">If Stop Loss hit</span>
+          <span class="br-val br-red" id="rr-sl-loss">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">If TP1 hit (1:R reward)</span>
+          <span class="br-val br-green" id="rr-tp1-profit">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">If TP2 hit (full run)</span>
+          <span class="br-val br-green" id="rr-tp2-profit">—</span>
+        </div>
+        <div class="divider"></div>
+        <div class="breakdown-row">
+          <span class="br-label">Risk : TP1 Reward</span>
+          <span class="br-val br-blue" id="rr-ratio1">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">Risk : TP2 Reward</span>
+          <span class="br-val br-blue" id="rr-ratio2">—</span>
+        </div>
+      </div>
+
+      <div class="result-grid">
+        <div class="result-card gold">
+          <div class="rc-label">New Balance (TP1)</div>
+          <div class="rc-val" id="rr-bal-tp1">—</div>
+          <div class="rc-sub">after winning at TP1</div>
+        </div>
+        <div class="result-card highlight">
+          <div class="rc-label">New Balance (TP2)</div>
+          <div class="rc-val" id="rr-bal-tp2">—</div>
+          <div class="rc-sub">after winning at TP2</div>
+        </div>
+        <div class="result-card danger wide">
+          <div class="rc-label">New Balance (SL)</div>
+          <div class="rc-val" id="rr-bal-sl">—</div>
+          <div class="rc-sub">after a losing trade</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       TAB 3 — BREAK-EVEN CALCULATOR
+  ════════════════════════════════════════════════════ -->
+  <div class="panel" id="tab-be">
+
+    <div class="be-info">
+      <p>After hitting <strong>TP1</strong>, move your stop loss to <strong>break-even</strong> (entry price) to protect your capital. This calculator tells you the exact price to set your stop loss after partial profit.</p>
+    </div>
+
+    <div class="section-label">Trade Setup</div>
+    <div class="input-card">
+      <div class="field-row">
+        <div class="field">
+          <label>Entry Price</label>
+          <input type="number" id="be-entry" placeholder="1.08420" step="0.00001" oninput="beCalc()">
+        </div>
+        <div class="field">
+          <label>Original Stop Loss</label>
+          <input type="number" id="be-sl" placeholder="1.07900" step="0.00001" oninput="beCalc()">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>TP1 Price</label>
+          <input type="number" id="be-tp1" placeholder="1.09460" step="0.00001" oninput="beCalc()">
+        </div>
+        <div class="field">
+          <label>Commission (pips)</label>
+          <input type="number" id="be-commission" placeholder="0.5" step="0.1" value="0.5" min="0" oninput="beCalc()">
+        </div>
+      </div>
+      <div class="field">
+        <label>Direction</label>
+        <select id="be-dir" onchange="beCalc()">
+          <option value="buy">▲ BUY</option>
+          <option value="sell">▼ SELL</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="calc-btn" onclick="beCalc(true)">Calculate Break-Even →</button>
+
+    <div class="results" id="be-results">
+
+      <div class="result-grid">
+        <div class="result-card highlight wide">
+          <div class="rc-label">Move SL To (Break-Even)</div>
+          <div class="rc-val" id="be-new-sl">—</div>
+          <div class="rc-sub">after TP1 is reached</div>
+        </div>
+        <div class="result-card">
+          <div class="rc-label">SL Distance (pips)</div>
+          <div class="rc-val" id="be-sl-pips">—</div>
+          <div class="rc-sub">original risk</div>
+        </div>
+        <div class="result-card gold">
+          <div class="rc-label">Locked Profit</div>
+          <div class="rc-val" id="be-locked">—</div>
+          <div class="rc-sub">if TP1 hit then SL hit</div>
+        </div>
+      </div>
+
+      <div class="breakdown">
+        <div class="breakdown-title">Step-by-Step Plan</div>
+        <div class="breakdown-row">
+          <span class="br-label">① Enter at</span>
+          <span class="br-val br-blue" id="be-plan-entry">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">② Initial SL at</span>
+          <span class="br-val br-red" id="be-plan-sl">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">③ When price reaches TP1</span>
+          <span class="br-val br-gold" id="be-plan-tp1">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">④ Move SL to</span>
+          <span class="br-val br-green" id="be-plan-new-sl">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">⑤ Remaining target</span>
+          <span class="br-val br-green" id="be-plan-tp2">Hold for TP2</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       TAB 4 — DAILY LOSS GUARD
+  ════════════════════════════════════════════════════ -->
+  <div class="panel" id="tab-guard">
+
+    <div class="section-label">Daily Risk Limits</div>
+    <div class="input-card">
+      <div class="field-row">
+        <div class="field">
+          <label>Account Balance ($)</label>
+          <input type="number" id="gd-balance" placeholder="1000" oninput="guardCalc()">
+        </div>
+        <div class="field">
+          <label>Daily Loss Limit (%)</label>
+          <input type="number" id="gd-limit" placeholder="5" min="1" max="50" step="0.5" value="5" oninput="guardCalc()">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Risk Per Trade (%)</label>
+          <input type="number" id="gd-risk" placeholder="2" min="0.1" max="10" step="0.1" value="2" oninput="guardCalc()">
+        </div>
+        <div class="field">
+          <label>Losses So Far Today</label>
+          <input type="number" id="gd-taken" placeholder="0" min="0" step="1" value="0" oninput="guardCalc()">
+        </div>
+      </div>
+    </div>
+
+    <button class="calc-btn" onclick="guardCalc(true)">Check Daily Status →</button>
+
+    <div class="results" id="guard-results">
+
+      <div class="guard-circle-wrap">
+        <div class="guard-circle" id="guard-circle">
+          <div class="guard-circle-inner">
+            <span class="gc-val" id="guard-trades-left">—</span>
+            <span class="gc-label">Trades Left</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="warn-box" id="guard-warn"></div>
+
+      <div class="result-grid">
+        <div class="result-card danger">
+          <div class="rc-label">Daily Max Loss ($)</div>
+          <div class="rc-val" id="guard-max-loss">—</div>
+          <div class="rc-sub">stop trading if hit</div>
+        </div>
+        <div class="result-card">
+          <div class="rc-label">Lost So Far ($)</div>
+          <div class="rc-val" id="guard-lost">—</div>
+          <div class="rc-sub">from losing trades</div>
+        </div>
+        <div class="result-card highlight">
+          <div class="rc-label">Remaining Budget ($)</div>
+          <div class="rc-val" id="guard-remaining">—</div>
+          <div class="rc-sub">can still lose today</div>
+        </div>
+        <div class="result-card gold">
+          <div class="rc-label">Recovery Trades</div>
+          <div class="rc-val" id="guard-recovery">—</div>
+          <div class="rc-sub">needed to break even</div>
+        </div>
+      </div>
+
+      <div class="breakdown">
+        <div class="breakdown-title">Rule Checklist</div>
+        <div class="breakdown-row">
+          <span class="br-label">Max consecutive losses</span>
+          <span class="br-val" id="guard-max-consec">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">Recommended max trades/day</span>
+          <span class="br-val br-blue" id="guard-max-trades">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">Risk per lot in $</span>
+          <span class="br-val br-red" id="guard-risk-usd">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="br-label">Trading status</span>
+          <span class="br-val" id="guard-status-txt">—</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Calculations are estimates. Always verify with your broker.<br>
+    Risk responsibly — protect your capital above all.
+  </div>
+
+</div>
+
+<script>
+  /* ═══════════════════════════════════════
+     DEMO: Simulate a signal being passed in
+     In production, the signal data comes from
+     the Telegram Mini App URL params or
+     postMessage from the parent page.
+  ═══════════════════════════════════════ */
+  const DEMO_SIGNAL = {
+    symbol: 'EUR/USD',
+    direction: 'BUY',
+    entry: 1.08420,
+    stop_loss: 1.07900,
+    tp1: 1.09460,
+    tp2: 1.09980,
+  };
+
+  // Try to read signal from URL params (for real integration)
+  function getSignalFromURL() {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('entry') && p.get('sl')) {
+      return {
+        symbol:     p.get('sym') || 'Signal',
+        direction:  p.get('dir') || 'BUY',
+        entry:      parseFloat(p.get('entry')),
+        stop_loss:  parseFloat(p.get('sl')),
+        tp1:        parseFloat(p.get('tp1')) || null,
+        tp2:        parseFloat(p.get('tp2')) || null,
+      };
+    }
+    return null;
+  }
+
+  let activeSignal = getSignalFromURL() || DEMO_SIGNAL;
+
+  // Show signal bar
+  function showSignalBar(sig) {
+    const bar = document.getElementById('signalBar');
+    document.getElementById('signalBarTitle').textContent =
+      `${sig.symbol} · ${sig.direction}`;
+    document.getElementById('signalBarSub').textContent =
+      `Entry ${sig.entry.toFixed(5)} · SL ${sig.stop_loss.toFixed(5)}`;
+    bar.style.display = 'flex';
+  }
+
+  function applySignal() {
+    const s = activeSignal;
+    // Fill Lot Size tab
+    document.getElementById('lot-entry').value = s.entry;
+    document.getElementById('lot-sl').value = s.stop_loss;
+    document.getElementById('lot-dir').value = s.direction.toLowerCase();
+    // Fill RR tab
+    document.getElementById('rr-entry').value = s.entry;
+    document.getElementById('rr-sl').value = s.stop_loss;
+    if (s.tp1) document.getElementById('rr-tp1').value = s.tp1;
+    if (s.tp2) document.getElementById('rr-tp2').value = s.tp2;
+    // Fill Breakeven tab
+    document.getElementById('be-entry').value = s.entry;
+    document.getElementById('be-sl').value = s.stop_loss;
+    if (s.tp1) document.getElementById('be-tp1').value = s.tp1;
+    document.getElementById('be-dir').value = s.direction.toLowerCase();
+    // Switch to lot tab and calc
+    switchTab('lot');
+    lotCalc(true);
+    // Animate bar
+    const bar = document.getElementById('signalBar');
+    bar.style.borderColor = 'var(--green)';
+    setTimeout(() => bar.style.borderColor = '', 1000);
+  }
+
+  showSignalBar(activeSignal);
+
+  /* ═══════════════════════════════════════
+     TAB SWITCHING
+  ═══════════════════════════════════════ */
+  function switchTab(id) {
+    document.querySelectorAll('.tab').forEach((t,i) => {
+      t.classList.toggle('active', ['lot','rr','be','guard'][i] === id);
+    });
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+  }
+
+  /* ═══════════════════════════════════════
+     HELPERS
+  ═══════════════════════════════════════ */
+  function fmt$(n)   { return n < 0 ? `-$${Math.abs(n).toFixed(2)}` : `$${n.toFixed(2)}`; }
+  function fmtN(n,d) { return n.toFixed(d ?? 2); }
+
+  function getPipMultiplier(instrument, price) {
+    if (instrument === 'forex-jpy') return 0.01;
+    if (instrument.startsWith('crypto')) return 1;
+    return 0.0001;
+  }
+
+  function getLotUnitSize(type) {
+    return { standard: 100000, mini: 10000, micro: 1000, nano: 100 }[type] || 100000;
+  }
+
+  function updateRiskLabel() {
+    const v = parseFloat(document.getElementById('lot-risk').value);
+    document.getElementById('lot-risk-label').textContent = v.toFixed(1) + '%';
+    document.getElementById('lot-risk-display').textContent = v.toFixed(1) + '%';
+  }
+
+  function showResults(id, show) {
+    const el = document.getElementById(id);
+    el.classList.toggle('visible', show);
+    if (show) el.style.display = 'block';
+  }
+
+  /* ═══════════════════════════════════════
+     TAB 1: LOT SIZE
+  ═══════════════════════════════════════ */
+  function lotCalc(force) {
+    const balance    = parseFloat(document.getElementById('lot-balance').value);
+    const riskPct    = parseFloat(document.getElementById('lot-risk').value);
+    const entry      = parseFloat(document.getElementById('lot-entry').value);
+    const sl         = parseFloat(document.getElementById('lot-sl').value);
+    const instrument = document.getElementById('lot-instrument').value;
+    const accType    = document.getElementById('lot-type').value;
+
+    const warnEl = document.getElementById('lot-warn');
+    warnEl.classList.remove('visible');
+
+    if (!balance || !entry || !sl) {
+      if (force) showResults('lot-results', false);
+      return;
+    }
+
+    const pipSize    = getPipMultiplier(instrument, entry);
+    const unitSize   = getLotUnitSize(accType);
+    const slPips     = Math.abs(entry - sl) / pipSize;
+    const riskAmount = balance * (riskPct / 100);
+
+    // Pip value per lot (for forex): pipSize * lotSize
+    const pipValuePerLot = pipSize * unitSize;
+
+    // Lot size = risk amount / (pips * pipValue per lot)
+    // For crypto: use price per unit approach
+    let lotSize, pipValue;
+    if (instrument.startsWith('crypto')) {
+      // For crypto: riskAmount / (price diff * 1 unit) → size in units
+      const priceDiff = Math.abs(entry - sl);
+      lotSize = riskAmount / priceDiff;
+      pipValue = priceDiff * lotSize;
+    } else {
+      pipValue = pipValuePerLot;
+      lotSize  = riskAmount / (slPips * pipValue);
+    }
+
+    // Round to broker-safe lot size
+    let displayLot, lotLabel;
+    if (accType === 'standard') {
+      displayLot = Math.floor(lotSize * 100) / 100;
+      lotLabel = 'standard lots';
+    } else if (accType === 'mini') {
+      displayLot = Math.floor(lotSize * 10) / 10;
+      lotLabel = 'mini lots';
+    } else if (accType === 'micro') {
+      displayLot = Math.floor(lotSize);
+      lotLabel = 'micro lots';
+    } else {
+      displayLot = Math.floor(lotSize * 10);
+      lotLabel = 'nano lots';
+    }
+
+    if (displayLot < 0.01 && accType === 'standard') displayLot = 0.01;
+
+    const margin = (displayLot * unitSize * entry) / 100; // ~1:100
+
+    document.getElementById('lot-size-val').textContent = displayLot.toFixed(accType === 'standard' ? 2 : (accType === 'mini' ? 1 : 0));
+    document.getElementById('lot-size-sub').textContent = lotLabel;
+    document.getElementById('lot-risk-usd').textContent = fmt$(riskAmount);
+    document.getElementById('lot-pips').textContent = slPips.toFixed(1);
+    document.getElementById('lot-pip-val').textContent = `$${pipValue.toFixed(2)}`;
+    document.getElementById('lot-margin').textContent = fmt$(margin);
+
+    // Risk meter
+    const pct = Math.min((riskPct / 10) * 100, 100);
+    const bar = document.getElementById('lot-risk-bar');
+    const color = riskPct <= 1 ? '#00e5a0' : riskPct <= 2 ? '#38bdf8' : riskPct <= 3.5 ? '#f0b429' : '#ff4d6a';
+    bar.style.width  = pct + '%';
+    bar.style.background = color;
+
+    const statusEl = document.getElementById('lot-risk-status');
+    if (riskPct <= 1) {
+      statusEl.textContent = '✅ Conservative — ideal for steady growth';
+      statusEl.style.background = 'rgba(0,229,160,.08)';
+      statusEl.style.color = 'var(--green)';
+    } else if (riskPct <= 2) {
+      statusEl.textContent = '✅ Balanced — professional risk level';
+      statusEl.style.background = 'rgba(56,189,248,.08)';
+      statusEl.style.color = 'var(--blue)';
+    } else if (riskPct <= 3.5) {
+      statusEl.textContent = '⚠️ Elevated — only for high-conviction trades';
+      statusEl.style.background = 'rgba(240,180,41,.08)';
+      statusEl.style.color = 'var(--gold)';
+    } else {
+      statusEl.textContent = '🚨 High Risk — account drawdown danger zone';
+      statusEl.style.background = 'rgba(255,77,106,.08)';
+      statusEl.style.color = 'var(--red)';
+      warnEl.className = 'warn-box danger visible';
+      warnEl.textContent = `⚠️ At ${riskPct}% per trade, just 20 consecutive losses would wipe your account. Professional traders rarely exceed 2%.`;
+    }
+
+    showResults('lot-results', true);
+  }
+
+  /* ═══════════════════════════════════════
+     TAB 2: R:R PREVIEW
+  ═══════════════════════════════════════ */
+  function rrCalc(force) {
+    const balance = parseFloat(document.getElementById('rr-balance').value);
+    const risk    = parseFloat(document.getElementById('rr-risk').value);
+    const entry   = parseFloat(document.getElementById('rr-entry').value);
+    const sl      = parseFloat(document.getElementById('rr-sl').value);
+    const tp1     = parseFloat(document.getElementById('rr-tp1').value);
+    const tp2     = parseFloat(document.getElementById('rr-tp2').value);
+
+    if (!balance || !risk || !entry || !sl) {
+      if (force) showResults('rr-results', false);
+      return;
+    }
+
+    const riskAmt   = balance * (risk / 100);
+    const slDist    = Math.abs(entry - sl);
+    const tp1Dist   = tp1 ? Math.abs(tp1 - entry) : null;
+    const tp2Dist   = tp2 ? Math.abs(tp2 - entry) : null;
+
+    const tp1Profit = tp1 ? (riskAmt * (tp1Dist / slDist)) : null;
+    const tp2Profit = tp2 ? (riskAmt * (tp2Dist / slDist)) : null;
+
+    const ratio1 = tp1 ? (tp1Dist / slDist) : null;
+    const ratio2 = tp2 ? (tp2Dist / slDist) : null;
+
+    document.getElementById('rr-sl-loss').textContent   = fmt$(-riskAmt);
+    document.getElementById('rr-tp1-profit').textContent = tp1Profit ? fmt$(tp1Profit) : '—';
+    document.getElementById('rr-tp2-profit').textContent = tp2Profit ? fmt$(tp2Profit) : '—';
+    document.getElementById('rr-ratio1').textContent    = ratio1 ? `1 : ${ratio1.toFixed(2)}` : '—';
+    document.getElementById('rr-ratio2').textContent    = ratio2 ? `1 : ${ratio2.toFixed(2)}` : '—';
+    document.getElementById('rr-bal-tp1').textContent   = tp1Profit ? `$${(balance + tp1Profit).toFixed(2)}` : '—';
+    document.getElementById('rr-bal-tp2').textContent   = tp2Profit ? `$${(balance + tp2Profit).toFixed(2)}` : '—';
+    document.getElementById('rr-bal-sl').textContent    = `$${(balance - riskAmt).toFixed(2)}`;
+
+    showResults('rr-results', true);
+  }
+
+  /* ═══════════════════════════════════════
+     TAB 3: BREAK-EVEN
+  ═══════════════════════════════════════ */
+  function beCalc(force) {
+    const entry      = parseFloat(document.getElementById('be-entry').value);
+    const sl         = parseFloat(document.getElementById('be-sl').value);
+    const tp1        = parseFloat(document.getElementById('be-tp1').value);
+    const commission = parseFloat(document.getElementById('be-commission').value) || 0;
+    const dir        = document.getElementById('be-dir').value;
+
+    if (!entry || !sl || !tp1) {
+      if (force) showResults('be-results', false);
+      return;
+    }
+
+    const pipSize = 0.0001; // default forex
+    const commissionPrice = commission * pipSize;
+    const slPips = Math.abs(entry - sl) / pipSize;
+
+    // Break-even SL = entry + commission buffer (to cover spread)
+    let newSL;
+    if (dir === 'buy') {
+      newSL = entry + commissionPrice; // slightly above entry to cover spread
+    } else {
+      newSL = entry - commissionPrice;
+    }
+
+    document.getElementById('be-new-sl').textContent  = newSL.toFixed(5);
+    document.getElementById('be-sl-pips').textContent = slPips.toFixed(1);
+    document.getElementById('be-locked').textContent  = `${commission > 0 ? '~0 (spread covered)' : '$0 guaranteed'}`;
+
+    document.getElementById('be-plan-entry').textContent  = entry.toFixed(5);
+    document.getElementById('be-plan-sl').textContent     = sl.toFixed(5);
+    document.getElementById('be-plan-tp1').textContent    = tp1.toFixed(5);
+    document.getElementById('be-plan-new-sl').textContent = newSL.toFixed(5);
+
+    showResults('be-results', true);
+  }
+
+  /* ═══════════════════════════════════════
+     TAB 4: DAILY GUARD
+  ═══════════════════════════════════════ */
+  function guardCalc(force) {
+    const balance   = parseFloat(document.getElementById('gd-balance').value);
+    const limitPct  = parseFloat(document.getElementById('gd-limit').value);
+    const riskPct   = parseFloat(document.getElementById('gd-risk').value);
+    const lostCount = parseInt(document.getElementById('gd-taken').value) || 0;
+
+    if (!balance || !limitPct || !riskPct) {
+      if (force) showResults('guard-results', false);
+      return;
+    }
+
+    const maxLoss     = balance * (limitPct / 100);
+    const riskPerTrade = balance * (riskPct / 100);
+    const maxTrades   = Math.floor(maxLoss / riskPerTrade);
+    const lostAmount  = lostCount * riskPerTrade;
+    const remaining   = Math.max(maxLoss - lostAmount, 0);
+    const tradesLeft  = Math.max(maxTrades - lostCount, 0);
+    const recovery    = lostCount > 0 ? Math.ceil(lostCount * (1 / (riskPct / 100 * 2))) : 0; // 1:2 RR to recover
+
+    document.getElementById('guard-max-loss').textContent  = fmt$(maxLoss);
+    document.getElementById('guard-lost').textContent      = fmt$(lostAmount);
+    document.getElementById('guard-remaining').textContent = fmt$(remaining);
+    document.getElementById('guard-recovery').textContent  = recovery || '0';
+    document.getElementById('guard-trades-left').textContent = tradesLeft;
+    document.getElementById('guard-max-consec').textContent  = maxTrades + ' losses';
+    document.getElementById('guard-max-trades').textContent  = Math.max(maxTrades * 2, 3) + ' trades';
+    document.getElementById('guard-risk-usd').textContent   = fmt$(riskPerTrade);
+
+    // Conic gradient for circle
+    const usedPct = Math.min((lostCount / maxTrades) * 100, 100);
+    const deg = usedPct * 3.6;
+    const circleColor = usedPct < 50 ? 'var(--green)' : usedPct < 80 ? 'var(--gold)' : 'var(--red)';
+    document.getElementById('guard-circle').style.background =
+      `conic-gradient(${circleColor} ${deg}deg, var(--border2) ${deg}deg)`;
+
+    const statusEl  = document.getElementById('guard-status-txt');
+    const warnEl    = document.getElementById('guard-warn');
+    warnEl.className = 'warn-box';
+
+    if (tradesLeft === 0) {
+      statusEl.textContent = '🚫 STOP — Daily limit reached';
+      statusEl.style.color = 'var(--red)';
+      warnEl.className = 'warn-box danger visible';
+      warnEl.textContent = '🚨 You have hit your daily loss limit. Close all positions and step away. Protect your account — tomorrow is a new day.';
+    } else if (usedPct >= 70) {
+      statusEl.textContent = '⚠️ Caution — limit almost reached';
+      statusEl.style.color = 'var(--gold)';
+      warnEl.className = 'warn-box caution visible';
+      warnEl.textContent = `⚠️ You have ${tradesLeft} trade(s) left before hitting your daily limit. Be very selective.`;
+    } else {
+      statusEl.textContent = '✅ Clear to trade';
+      statusEl.style.color = 'var(--green)';
+    }
+
+    showResults('guard-results', true);
+  }
+
+  // Initialize risk label
+  updateRiskLabel();
+</script>
+</body>
+</html>

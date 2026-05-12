@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Self-Learning Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: #0f1117; color: #e2e8f0; min-height: 100vh; padding: 20px; }
+  h1 { color: #7c3aed; margin-bottom: 6px; font-size: 1.6rem; }
+  .subtitle { color: #64748b; font-size: 0.85rem; margin-bottom: 24px; }
+  a { color: #7c3aed; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .card { background: #1e2130; border: 1px solid #2d3148; border-radius: 10px; padding: 18px; }
+  .card h3 { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .card .value { font-size: 1.8rem; font-weight: 700; color: #a78bfa; }
+  .card .sub { font-size: 0.75rem; color: #64748b; margin-top: 4px; }
+  .section { background: #1e2130; border: 1px solid #2d3148; border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+  .section h2 { font-size: 1rem; color: #c4b5fd; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; color: #64748b; font-weight: 600; padding: 8px 12px; border-bottom: 1px solid #2d3148; }
+  td { padding: 8px 12px; border-bottom: 1px solid #1a1f30; }
+  tr:last-child td { border-bottom: none; }
+  .wr-bar { height: 6px; border-radius: 3px; background: #2d3148; position: relative; width: 100px; }
+  .wr-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+  .badge-green { background: #052e16; color: #4ade80; }
+  .badge-red   { background: #450a0a; color: #f87171; }
+  .badge-blue  { background: #0c1a3a; color: #60a5fa; }
+  .progress-bar { height: 8px; background: #2d3148; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #06b6d4); border-radius: 4px;
+                   transition: width 0.5s ease; }
+  .evolved-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .param-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;
+               background: #12151f; border-radius: 6px; font-size: 0.82rem; }
+  .param-name { color: #94a3b8; }
+  .param-val { font-weight: 600; }
+  .param-val.changed { color: #a78bfa; }
+  .param-val.same { color: #64748b; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .nav { display: flex; gap: 16px; font-size: 0.85rem; }
+  .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+              background: #4ade80; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .regime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .regime-card { background: #12151f; border-radius: 8px; padding: 14px; }
+  .regime-name { font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; }
+  .regime-wr { font-size: 1.3rem; font-weight: 700; }
+  .regime-wr.good { color: #4ade80; }
+  .regime-wr.ok   { color: #fbbf24; }
+  .regime-wr.bad  { color: #f87171; }
+  .gate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .gate-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;
+               background: #12151f; border-radius: 6px; font-size: 0.82rem; }
+  .gate-name { color: #94a3b8; }
+  .gate-val { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>🧠 Self-Learning Dashboard</h1>
+    <div class="subtitle">{{ now }} · <span class="live-dot"></span> Live data from learning.json</div>
+  </div>
+  <nav class="nav">
+    <a href="/">Dashboard</a>
+    <a href="/signals">Signals</a>
+    <a href="/status">Status</a>
+  </nav>
+</div>
+
+<!-- Summary cards -->
+<div class="grid">
+  <div class="card">
+    <h3>Bars Processed</h3>
+    <div class="value">{{ "{:,}".format(total_bars) }}</div>
+    <div class="sub">historical candles replayed</div>
+  </div>
+  <div class="card">
+    <h3>Signals Evaluated</h3>
+    <div class="value">{{ "{:,}".format(total_signals) }}</div>
+    <div class="sub">across {{ pair_rows | length }} pairs</div>
+  </div>
+  <div class="card">
+    <h3>Evolution Generation</h3>
+    <div class="value">{{ evolved.get("generation", 0) }}</div>
+    <div class="sub">fitness: {{ "%.3f"|format(evolved.get("fitness_score", 0)) }}</div>
+  </div>
+  <div class="card">
+    <h3>Evolved Min RR</h3>
+    <div class="value">{{ "%.2f"|format(evolved.get("rr_minimum", 2.0)) }}</div>
+    <div class="sub">risk:reward minimum</div>
+  </div>
+</div>
+
+<!-- Backtest progress (polls /api/learning/progress) -->
+<div class="section" id="progress-section">
+  <h2>📊 Backtest Progress</h2>
+  <div id="progress-label" style="font-size:0.85rem;color:#94a3b8;margin-bottom:6px;">Loading...</div>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+</div>
+
+<!-- Per-pair win rate table -->
+{% if pair_rows %}
+<div class="section">
+  <h2>📈 Per-Pair Performance</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Signals</th>
+        <th>TP1 Hits</th>
+        <th>Win Rate</th>
+        <th>Avg RR</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in pair_rows | sort(attribute="win_rate", reverse=True) %}
+      <tr>
+        <td><strong>{{ row.symbol }}</strong></td>
+        <td>{{ row.signals }}</td>
+        <td>{{ row.tp1_hit }}</td>
+        <td>{{ row.win_rate }}%</td>
+        <td>{{ row.avg_rr }}</td>
+        <td>
+          <div class="wr-bar">
+            <div class="wr-fill" style="width: {{ [row.win_rate, 100] | min }}%"></div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Market regime win rates -->
+{% if regimes %}
+<div class="section">
+  <h2>🌊 Market Regime Performance</h2>
+  <div class="regime-grid">
+    {% for name, stats in regimes.items() %}
+    {% set wr_pct = (stats.get("win_rate", 0) * 100) | round(1) %}
+    <div class="regime-card">
+      <div class="regime-name">{{ name.replace("_", " ") }}</div>
+      <div class="regime-wr {{ 'good' if wr_pct >= 60 else ('ok' if wr_pct >= 45 else 'bad') }}">
+        {{ wr_pct }}%
+      </div>
+      <div style="font-size:0.75rem;color:#64748b;margin-top:4px;">
+        {{ stats.get("signal_count", 0) }} signals · avg RR {{ "%.2f"|format(stats.get("avg_rr", 0)) }}
+      </div>
+      <div class="progress-bar" style="margin-top:6px;">
+        <div class="progress-fill" style="width:{{ [wr_pct, 100]|min }}%;
+             background: {{ '#4ade80' if wr_pct >= 60 else ('#fbbf24' if wr_pct >= 45 else '#f87171') }}"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Gate performance -->
+{% if gate_perf %}
+<div class="section">
+  <h2>🔬 Gate Performance Heatmap</h2>
+  <div class="gate-grid">
+    {% for name, wr in gate_perf.items() | sort(key=lambda x: x[1], reverse=True) %}
+    {% set pct = (wr * 100) | round(1) %}
+    <div class="gate-item">
+      <span class="gate-name">{{ name.replace("_winrate","").replace("_"," ") }}</span>
+      <span class="gate-val" style="color:{{ '#4ade80' if pct >= 65 else ('#fbbf24' if pct >= 50 else '#f87171') }}">
+        {{ pct }}%
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Evolved parameters vs defaults -->
+{% if evolved %}
+<div class="section">
+  <h2>⚙️ Evolved Parameters</h2>
+  <div class="evolved-grid" id="evo-table">Loading...</div>
+</div>
+{% endif %}
+
+<script>
+// Poll backtest progress
+async function updateProgress() {
+  try {
+    const r = await fetch("/api/learning/progress");
+    const d = await r.json();
+    const pct = d.percent ?? (d.bars_processed > 0 ? 100 : 0);
+    document.getElementById("progress-fill").style.width = pct + "%";
+    document.getElementById("progress-label").textContent =
+      d.running
+        ? `Running... ${d.done_pairs ?? "?"}/${d.total_pairs ?? "?"} pairs (${pct.toFixed(1)}%)`
+        : (d.bars_processed > 0 ? `Complete — ${d.bars_processed?.toLocaleString() ?? pct+"%" } bars processed` : "Not started yet");
+  } catch(e) {
+    document.getElementById("progress-label").textContent = "Could not load progress data";
+  }
+}
+
+// Load evolved param comparison
+async function loadEvolution() {
+  try {
+    const r = await fetch("/api/learning/evolution");
+    const d = await r.json();
+    const cmp = d.comparison_vs_defaults ?? {};
+    const container = document.getElementById("evo-table");
+    if (!container) return;
+    container.innerHTML = Object.entries(cmp).map(([k, v]) => `
+      <div class="param-row">
+        <span class="param-name">${k.replace(/_/g,' ')}</span>
+        <span class="param-val ${v.changed ? 'changed' : 'same'}">
+          ${typeof v.evolved === 'number' ? v.evolved.toFixed(4) : v.evolved}
+          ${v.changed ? '<small style="color:#64748b"> (was '+
+            (typeof v.default === 'number' ? v.default.toFixed(4) : v.default)+')</small>' : ''}
+        </span>
+      </div>
+    `).join('');
+  } catch(e) {
+    const c = document.getElementById("evo-table");
+    if (c) c.textContent = "Could not load evolution data";
+  }
+}
+
+updateProgress();
+setInterval(updateProgress, 15000);
+loadEvolution();
+</script>
+</body>
+</html>

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trading Signal System — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --border:   #30363d;
+      --green:    #3fb950;
+      --blue:     #58a6ff;
+      --muted:    #8b949e;
+      --text:     #e6edf3;
+      --gold:     #d29922;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+
+    header .brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--blue);
+      letter-spacing: .5px;
+    }
+
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-size: .9rem;
+      transition: color .2s;
+    }
+
+    nav a:hover, nav a.active { color: var(--text); }
+
+    main {
+      max-width: 960px;
+      margin: 3rem auto;
+      padding: 0 1.5rem;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .hero h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: .5rem;
+    }
+
+    .hero p { color: var(--muted); font-size: 1rem; }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      background: rgba(63,185,80,.12);
+      border: 1px solid rgba(63,185,80,.3);
+      color: var(--green);
+      font-size: .85rem;
+      font-weight: 600;
+      padding: .3rem .9rem;
+      border-radius: 999px;
+      margin-top: .8rem;
+    }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .3; }
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2rem 1.4rem;
+    }
+
+    .card .label {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: .4rem;
+    }
+
+    .card .value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+
+    .card .sub { font-size: .8rem; color: var(--muted); margin-top: .2rem; }
+
+    .nav-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .nav-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.4rem;
+      text-decoration: none;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: border-color .2s, transform .15s;
+    }
+
+    .nav-card:hover {
+      border-color: var(--blue);
+      transform: translateY(-2px);
+    }
+
+    .nav-card .icon { font-size: 1.8rem; }
+
+    .nav-card .info .title { font-weight: 600; margin-bottom: .2rem; }
+    .nav-card .info .desc  { font-size: .8rem; color: var(--muted); }
+
+    .time-line {
+      text-align: center;
+      color: var(--muted);
+      font-size: .82rem;
+      margin-top: 3rem;
+    }
+
+    {% if error %}
+    .error-box {
+      background: rgba(248,81,73,.1);
+      border: 1px solid rgba(248,81,73,.3);
+      color: #f85149;
+      border-radius: 8px;
+      padding: .8rem 1.2rem;
+      margin-bottom: 1.5rem;
+      font-size: .9rem;
+    }
+    {% endif %}
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="brand">📈 Signal System</span>
+  <nav>
+    <a href="/"        class="active">Home</a>
+    <a href="/signals">Signals</a>
+    <a href="/chart">Chart</a>
+    <a href="/payments"         >Payments</a>
+    <a href="/chat">Chat</a>
+    <a href="/status">Status</a>
+  </nav>
+</header>
+
+<main>
+  {% if error %}
+  <div class="error-box">⚠️ {{ error }}</div>
+  {% endif %}
+
+  <div class="hero">
+    <h1>Trading Signal System</h1>
+    <p>Smart Money Concepts engine — Crypto &amp; Forex</p>
+    <div class="status-badge">
+      <span class="dot"></span> Running &amp; Active
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">Engine</div>
+      <div class="value">Online</div>
+      <div class="sub">Scanning 6 pairs</div>
+    </div>
+    <div class="card">
+      <div class="label">Markets</div>
+      <div class="value">6</div>
+      <div class="sub">3 Crypto · 3 Forex</div>
+    </div>
+    <div class="card">
+      <div class="label">Strategy</div>
+      <div class="value" style="font-size:1rem;padding-top:.3rem">SMC</div>
+      <div class="sub">H1 + M15 multi-timeframe</div>
+    </div>
+    <div class="card">
+      <div class="label">Min RR</div>
+      <div class="value">1 : 2</div>
+      <div class="sub">Quality over quantity</div>
+    </div>
+  </div>
+
+  <div class="nav-cards">
+    <a href="/signals" class="nav-card">
+      <span class="icon">📊</span>
+      <div class="info">
+        <div class="title">Recent Signals</div>
+        <div class="desc">Last 20 BUY/SELL signals dispatched</div>
+      </div>
+    </a>
+    <a href="/chat" class="nav-card" style="border-color: var(--gold); background: rgba(210,153,34,.08);">
+      <span class="icon">💬</span>
+      <div class="info">
+        <div class="title">Chat with Bot</div>
+        <div class="desc">Ask questions • Send payment proof • Get help</div>
+      </div>
+    </a>
+    <a href="/payments" class="nav-card">
+      <span class="icon">💳</span>
+      <div class="info">
+        <div class="title">Payments</div>
+        <div class="desc">Pending submissions &amp; approved users</div>
+      </div>
+    </a>
+    <a href="/status" class="nav-card">
+      <span class="icon">⚙️</span>
+      <div class="info">
+        <div class="title">System Status</div>
+        <div class="desc">Engine · cycles · last signal</div>
+      </div>
+    </a>
+  </div>
+
+  <p class="time-line">Last checked: {{ now }}</p>
+</main>
+
+</body>
+</html>
